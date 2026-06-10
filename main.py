@@ -154,6 +154,7 @@ def main():
     state['previous_close_value'] = current_value
     state['last_run_date'] = latest_date_str
     
+    end_date = datetime.datetime.today()
     invested_date = datetime.datetime.strptime(state['invested_date'], "%Y-%m-%d")
     invested_days = (end_date - invested_date).days
     
