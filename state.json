@@ -1,15 +1,21 @@
 {
-  "invested_date": "2026-06-10",
-  "invested_amount": 316419.0,
+  "invested_amount": 328539.0,
   "units_nifty": 0.0,
-  "units_gold": 2601.0,
-  "target_asset": "GOLD",
-  "transition_days_left": 0,
-  "sell_asset": null,
-  "buy_asset": null,
-  "switch_count": 0,
-  "previous_close_value": 322940.1695251465,
-  "last_run_date": "2026-06-08",
-  "last_nifty_price": 262.55999755859375,
-  "last_gold_price": 124.16000366210938
+  "units_gold": 2701.0,
+  "current_signal_target": "GOLD",
+  "pending_switch": false,
+  "previous_close_value": 328539.0,
+  "last_run_date": null,
+  "cash_flows": [
+    {
+      "date": "2026-06-10",
+      "amount": -328539.0
+    }
+  ],
+  "user_input": {
+    "fresh_cash_added": 0.0,
+    "gold_units_change": 0.0,
+    "nifty_units_change": 0.0,
+    "mark_switch_completed": false
+  }
 }

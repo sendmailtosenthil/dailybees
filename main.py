@@ -7,6 +7,7 @@ from email.utils import make_msgid
 import yfinance as yf
 import pandas as pd
 import matplotlib.pyplot as plt
+from pyxirr import xirr
 
 STATE_FILE = 'state.json'
 
@@ -68,6 +69,7 @@ def main():
 
     latest_row = df.iloc[-1]
     latest_date_str = df.index[-1].strftime("%Y-%m-%d")
+    today_str = datetime.datetime.today().strftime("%Y-%m-%d")
     
     if state.get('last_run_date') == latest_date_str:
         print(f"Already ran for date {latest_date_str}. Exiting.")
@@ -79,74 +81,43 @@ def main():
     upper = float(latest_row['Upper'])
     lower = float(latest_row['Lower'])
     
-    # Auto-adjust for splits (basic detection)
-    if state.get('last_nifty_price') and nifty_price < state['last_nifty_price'] * 0.5:
-        split_ratio = round(state['last_nifty_price'] / nifty_price)
-        state['units_nifty'] *= split_ratio
-    if state.get('last_gold_price') and gold_price < state['last_gold_price'] * 0.5:
-        split_ratio = round(state['last_gold_price'] / gold_price)
-        state['units_gold'] *= split_ratio
+    # Process User Manual Inputs
+    user_input = state.get('user_input', {})
+    fresh_cash = user_input.get('fresh_cash_added', 0.0)
+    if fresh_cash != 0:
+        state['invested_amount'] += fresh_cash
+        state['cash_flows'].append({"date": today_str, "amount": -fresh_cash})
         
-    state['last_nifty_price'] = nifty_price
-    state['last_gold_price'] = gold_price
-
-    # Check Signals
-    new_target = state['target_asset']
-    action_message = "No switch action required today. Holding steady."
-    alert_color = "#4a5568"
+    state['units_gold'] += user_input.get('gold_units_change', 0.0)
+    state['units_nifty'] += user_input.get('nifty_units_change', 0.0)
     
-    if ratio > upper:
-        new_target = 'NIFTY'
-    elif ratio < lower:
-        new_target = 'GOLD'
+    if user_input.get('mark_switch_completed', False):
+        state['pending_switch'] = False
         
-    if new_target != state['target_asset']:
-        state['target_asset'] = new_target
-        state['transition_days_left'] = 3
-        state['switch_count'] += 1
-        if state['target_asset'] == 'NIFTY':
-            state['sell_asset'] = 'GOLD'
-            state['buy_asset'] = 'NIFTY'
-        else:
-            state['sell_asset'] = 'NIFTY'
-            state['buy_asset'] = 'GOLD'
-        
-        action_message = f"🚨 URGENT: SIGNAL GENERATED TO SWITCH TO {state['target_asset']}! Execute your first 50% transfer today."
-        alert_color = "#e53e3e"
-        
-    elif state['transition_days_left'] > 0:
-        if state['transition_days_left'] == 2:
-            action_message = f"⚠️ ONGOING TRANSITION: Execute your second 25% transfer to {state['target_asset']} today."
-            alert_color = "#dd6b20"
-        elif state['transition_days_left'] == 1:
-            action_message = f"⚠️ ONGOING TRANSITION: Execute your final 25% transfer to {state['target_asset']} today."
-            alert_color = "#dd6b20"
+    # Reset User Inputs
+    state['user_input'] = {
+        "fresh_cash_added": 0.0,
+        "gold_units_change": 0.0,
+        "nifty_units_change": 0.0,
+        "mark_switch_completed": False
+    }
 
-    # We assume the user executes the trade, so we automatically update the tracker based on the 50-25-25 model
-    if state['transition_days_left'] > 0:
-        fraction_to_sell = 0.50 if state['transition_days_left'] in [3, 2] else 1.00
-        
-        if state['sell_asset'] == 'NIFTY':
-            units_to_sell = state['units_nifty'] * fraction_to_sell
-            sell_value = units_to_sell * nifty_price
-            state['units_nifty'] -= units_to_sell
-        else:
-            units_to_sell = state['units_gold'] * fraction_to_sell
-            sell_value = units_to_sell * gold_price
-            state['units_gold'] -= units_to_sell
-            
-        sell_charges = (sell_value * 0.0005) + 35
-        net_proceeds = sell_value - sell_charges
-        buy_invested = net_proceeds / 1.0005
-        
-        if state['buy_asset'] == 'NIFTY':
-            units_bought = buy_invested / nifty_price
-            state['units_nifty'] += units_bought
-        else:
-            units_bought = buy_invested / gold_price
-            state['units_gold'] += units_bought
-            
-        state['transition_days_left'] -= 1
+    # Check Strategy Signals
+    if ratio > upper and state['current_signal_target'] != 'NIFTY':
+        state['current_signal_target'] = 'NIFTY'
+        state['pending_switch'] = True
+    elif ratio < lower and state['current_signal_target'] != 'GOLD':
+        state['current_signal_target'] = 'GOLD'
+        state['pending_switch'] = True
+
+    # Generate Action Message
+    alert_color = "#4a5568"
+    if state['pending_switch']:
+        target = state['current_signal_target']
+        action_message = f"🚨 URGENT: PENDING SWITCH TO {target}! Please execute your trades on your broker. Then update 'nifty_units_change' and 'gold_units_change' in state.json. Set 'mark_switch_completed' to true once you are fully done."
+        alert_color = "#e53e3e"
+    else:
+        action_message = f"✅ No action required. Holding steady in {state['current_signal_target']}."
 
     # Calculate Metrics
     current_value = (state['units_nifty'] * nifty_price) + (state['units_gold'] * gold_price)
@@ -154,12 +125,28 @@ def main():
     state['previous_close_value'] = current_value
     state['last_run_date'] = latest_date_str
     
-    end_date = datetime.datetime.today()
-    invested_date = datetime.datetime.strptime(state['invested_date'], "%Y-%m-%d")
-    invested_days = (end_date - invested_date).days
+    first_invest_date = datetime.datetime.strptime(state['cash_flows'][0]['date'], "%Y-%m-%d")
+    invested_days = (datetime.datetime.today() - first_invest_date).days
     
-    roi = ((current_value / state['invested_amount']) - 1) * 100
+    roi = ((current_value / state['invested_amount']) - 1) * 100 if state['invested_amount'] > 0 else 0
     
+    # Calculate XIRR
+    dates = [datetime.datetime.strptime(cf['date'], "%Y-%m-%d") for cf in state['cash_flows']]
+    amounts = [cf['amount'] for cf in state['cash_flows']]
+    
+    dates.append(datetime.datetime.today())
+    amounts.append(current_value)
+    
+    try:
+        calculated_xirr = xirr(dates, amounts)
+        if calculated_xirr is not None:
+            calculated_xirr = calculated_xirr * 100
+        else:
+            calculated_xirr = 0.0
+    except Exception as e:
+        print(f"XIRR Calculation failed: {e}")
+        calculated_xirr = 0.0
+        
     # Determine which instrument is primarily held
     current_instrument = "Gold Bees" if state['units_gold'] * gold_price > state['units_nifty'] * nifty_price else "Nifty Bees"
     total_units = state['units_gold'] if current_instrument == "Gold Bees" else state['units_nifty']
@@ -180,14 +167,12 @@ def main():
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <tr><th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">Metric</th><th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">Value</th></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Investment Instrument</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;"><b>{current_instrument}</b></td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Invested Date</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">{state['invested_date']}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Initial Invested Amount</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">₹{state['invested_amount']:,.2f}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Total Invested Cash</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">₹{state['invested_amount']:,.2f}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Current Value</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;"><b>₹{current_value:,.2f}</b></td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Units Held</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">{total_units:,.2f}</td></tr>
           <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Day's PnL</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee; color: {'green' if day_diff >= 0 else 'red'};">₹{day_diff:,.2f}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Invested Days</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">{invested_days}</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Return on Investment (ROI)</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee; color: {'green' if roi >= 0 else 'red'};">{roi:.2f}%</td></tr>
-          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Number of Switches</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">{state['switch_count']}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Total ROI</td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee; color: {'green' if roi >= 0 else 'red'};">{roi:.2f}%</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><b>Annualized XIRR</b></td><td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee; color: {'green' if calculated_xirr >= 0 else 'red'};"><b>{calculated_xirr:.2f}%</b></td></tr>
         </table>
         
         <h3 style="color: #2b6cb0;">Current Prices (As of {latest_date_str})</h3>
