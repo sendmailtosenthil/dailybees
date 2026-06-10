@@ -4,8 +4,8 @@
   "units_gold": 2701.0,
   "current_signal_target": "GOLD",
   "pending_switch": false,
-  "previous_close_value": 328539.0,
-  "last_run_date": null,
+  "previous_close_value": 338678.38835144043,
+  "last_run_date": "2026-06-09",
   "cash_flows": [
     {
       "date": "2026-06-10",
