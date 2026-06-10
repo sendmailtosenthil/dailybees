@@ -1,0 +1,41 @@
+name: Daily Donchian Report
+
+on:
+  schedule:
+    - cron: '30 2 * * *'  # 8:00 AM IST (2:30 AM UTC)
+  workflow_dispatch:      # Allows manual trigger from the GitHub UI
+
+jobs:
+  run-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Need write permission to commit state.json back
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run script
+      env:
+        GMAIL_USER: ${{ secrets.GMAIL_USER }}
+        GMAIL_PASS: ${{ secrets.GMAIL_PASS }}
+      run: python main.py
+
+    - name: Commit state changes
+      run: |
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
+        git add state.json
+        # Only commit if there are changes
+        git diff --staged --quiet || (git commit -m "chore: auto-update daily state" && git push)
