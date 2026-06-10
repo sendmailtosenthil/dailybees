@@ -8,6 +8,8 @@
   "sell_asset": null,
   "buy_asset": null,
   "switch_count": 0,
-  "previous_close_value": 316419.0,
-  "last_run_date": null
+  "previous_close_value": 322940.1695251465,
+  "last_run_date": "2026-06-08",
+  "last_nifty_price": 262.55999755859375,
+  "last_gold_price": 124.16000366210938
 }
