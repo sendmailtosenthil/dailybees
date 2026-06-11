@@ -71,8 +71,8 @@ def main():
     latest_date_str = df.index[-1].strftime("%Y-%m-%d")
     today_str = datetime.datetime.today().strftime("%Y-%m-%d")
     
-    if state.get('last_run_date') == latest_date_str:
-        print(f"Already ran for date {latest_date_str}. Exiting.")
+    if state.get('last_run_date') == today_str:
+        print(f"Already ran today ({today_str}). Exiting.")
         return
 
     nifty_price = float(latest_row['NIFTY'])
@@ -123,7 +123,7 @@ def main():
     current_value = (state['units_nifty'] * nifty_price) + (state['units_gold'] * gold_price)
     day_diff = current_value - state.get('previous_close_value', current_value)
     state['previous_close_value'] = current_value
-    state['last_run_date'] = latest_date_str
+    state['last_run_date'] = today_str
     
     first_invest_date = datetime.datetime.strptime(state['cash_flows'][0]['date'], "%Y-%m-%d")
     invested_days = (datetime.datetime.today() - first_invest_date).days
