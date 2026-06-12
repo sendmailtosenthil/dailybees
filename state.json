@@ -1,21 +1,53 @@
 {
-  "invested_amount": 328539.0,
-  "units_nifty": 0.0,
-  "units_gold": 2701.0,
-  "current_signal_target": "GOLD",
-  "pending_switch": false,
-  "previous_close_value": 338678.38835144043,
   "last_run_date": "2026-06-11",
-  "cash_flows": [
-    {
-      "date": "2026-06-10",
-      "amount": -328539.0
+  "strategies": {
+    "nifty_gold": {
+      "pair_name": "NIFTY vs GOLD",
+      "window": 25,
+      "asset1": "NIFTYBEES.NS",
+      "asset2": "GOLDBEES.NS",
+      "invested_amount": 328539.0,
+      "units_1": 0.0,
+      "units_2": 2701.0,
+      "current_signal_target": "ASSET2",
+      "pending_switch": false,
+      "previous_close_value": 327226.1541213989,
+      "cash_flows": [
+        {
+          "date": "2026-06-10",
+          "amount": -328539.0
+        }
+      ],
+      "user_input": {
+        "fresh_cash_added": 0.0,
+        "asset1_units_change": 0.0,
+        "asset2_units_change": 0.0,
+        "mark_switch_completed": false
+      }
+    },
+    "bank_it": {
+      "pair_name": "BANK vs IT",
+      "window": 15,
+      "asset1": "BANKBEES.NS",
+      "asset2": "ITBEES.NS",
+      "invested_amount": 227163.72,
+      "units_1": 0.0,
+      "units_2": 7309.0,
+      "current_signal_target": "ASSET1",
+      "pending_switch": true,
+      "previous_close_value": 229648.78055763245,
+      "cash_flows": [
+        {
+          "date": "2026-06-11",
+          "amount": -227163.72
+        }
+      ],
+      "user_input": {
+        "fresh_cash_added": 0.0,
+        "asset1_units_change": 0.0,
+        "asset2_units_change": 0.0,
+        "mark_switch_completed": false
+      }
     }
-  ],
-  "user_input": {
-    "fresh_cash_added": 0.0,
-    "gold_units_change": 0.0,
-    "nifty_units_change": 0.0,
-    "mark_switch_completed": false
   }
 }
