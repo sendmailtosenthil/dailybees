@@ -1,5 +1,5 @@
 {
-  "last_run_date": "2026-06-29",
+  "last_run_date": "2026-06-30",
   "strategies": {
     "nifty_gold": {
       "pair_name": "NIFTY vs GOLD",
@@ -11,7 +11,7 @@
       "units_2": 2701.0,
       "current_signal_target": "ASSET1",
       "pending_switch": true,
-      "previous_close_value": 310506.95752716064,
+      "previous_close_value": 314477.4308242798,
       "cash_flows": [
         {
           "date": "2026-06-10",
@@ -35,7 +35,7 @@
       "units_2": 7309.0,
       "current_signal_target": "ASSET1",
       "pending_switch": true,
-      "previous_close_value": 221901.24446105957,
+      "previous_close_value": 219416.18334579468,
       "cash_flows": [
         {
           "date": "2026-06-11",
